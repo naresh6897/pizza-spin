@@ -3,10 +3,65 @@
 <head>
   <title>You Won!</title>
   <style>
-    body { font-family: Arial; background: #FFE8D6; text-align: center; padding: 20px; }
-    .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h1 { color: #E63946; }
-    h2 { color: #457B9D; }
+    body {
+      font-family: 'Poppins', Arial, sans-serif;
+      background: #FFE8D6 url('images/pizza-meal.jpg') center/cover no-repeat; /* Provided pizza meal image */
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      position: relative;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border: 3px dashed #E63946;
+      position: relative;
+      z-index: 1;
+    }
+    h1 {
+      color: #E63946;
+      font-weight: bold;
+      font-size: 2em;
+    }
+    h2 {
+      color: #F4A261;
+      font-size: 1.5em;
+    }
+    .cta-button {
+      background: #E63946;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      font-weight: bold;
+      display: inline-block;
+      text-decoration: none;
+      margin: 10px 0;
+    }
+    .share-button {
+      color: #E63946;
+      font-size: 1em;
+      text-decoration: underline;
+      cursor: pointer;
+      display: inline-block;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -14,12 +69,25 @@
     <h1>🎉 Congratulations, <span id="name"></span>!</h1>
     <h2>You won: <span id="prize"></span></h2>
     <p>Show this screen at 241 Pizza to claim your prize!</p>
+    <a href="https://241pizza.com" class="cta-button">Claim Prize!</a><br>
+    <a href="#" id="share-btn" class="share-button">Share on X</a>
   </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
-    document.getElementById('prize').textContent = params.get('prize') || 'No Prize';
-    document.getElementById('name').textContent = params.get('name') || 'Guest';
+    const prize = params.get('prize') || 'No Prize';
+    const name = params.get('name') || 'Guest';
+
+    document.getElementById('prize').textContent = prize;
+    document.getElementById('name').textContent = name;
+
+    // Share button functionality
+    document.getElementById('share-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      const shareText = `I won ${prize} at 241 Pizza! 🍕 Spin to win your prize: https://241pizza.com/spin`;
+      const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+      window.open(shareUrl, '_blank');
+    });
   </script>
 </body>
 </html>
