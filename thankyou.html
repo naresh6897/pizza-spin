@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>You Won!</title>
+  <style>
+    body { font-family: Arial; background: #FFE8D6; text-align: center; padding: 20px; }
+    .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1 { color: #E63946; }
+    h2 { color: #457B9D; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎉 Congratulations, <span id="name"></span>!</h1>
+    <h2>You won: <span id="prize"></span></h2>
+    <p>Show this screen at 241 Pizza to claim your prize!</p>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById('prize').textContent = params.get('prize') || 'No Prize';
+    document.getElementById('name').textContent = params.get('name') || 'Guest';
+  </script>
+</body>
+</html>

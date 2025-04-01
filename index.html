@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>241 Pizza - Enter to Spin!</title>
+  <style>
+    body { font-family: Arial; background: #FFE8D6; text-align: center; padding: 20px; }
+    .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1 { color: #E63946; }
+    input { padding: 10px; margin: 10px 0; width: 80%; border: 1px solid #ddd; border-radius: 5px; }
+    button { background: #E63946; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; }
+    button:disabled { background: #999; cursor: not-allowed; }
+    .error { color: #E63946; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍕 241 Pizza Spin & Win!</h1>
+    <p>Enter your details to spin the wheel!</p>
+    <form id="customer-form">
+      <input type="text" id="name" placeholder="Your Name" required><br>
+      <input type="email" id="email" placeholder="Email" required><br>
+      <input type="tel" id="phone" placeholder="Phone (10 digits)" required><br>
+      <button type="submit" id="submit-btn">Spin the Wheel!</button>
+    </form>
+    <div id="error" class="error"></div>
+  </div>
+
+  <script>
+    document.getElementById('customer-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submit-btn');
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = '';
+
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+
+      console.log('STEP 1: Form submitted with:', { name, email, phone });
+
+      if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+        errorDiv.textContent = 'Please enter a valid email';
+        console.log('STEP 2: Email validation failed');
+        return;
+      }
+      if (!/^\d{10}$/.test(phone)) {
+        errorDiv.textContent = 'Please enter a valid 10-digit phone number';
+        console.log('STEP 2: Phone validation failed');
+        return;
+      }
+
+      console.log('STEP 3: Validation passed, disabling button');
+      submitBtn.disabled = true;
+
+      try {
+        console.log('STEP 4: Sending fetch request to /submit');
+        const response = await fetch('/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, phone }),
+        });
+
+        console.log('STEP 5: Fetch response - Status:', response.status, 'OK:', response.ok);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('STEP 6: Server returned:', result);
+
+        if (response.ok && result.success) {
+          const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
+          console.log('STEP 7: Success! Redirecting to:', redirectUrl);
+          // Removed alert to prevent interference
+          window.location.href = redirectUrl;
+          console.log('STEP 8: Redirect via window.location.href executed');
+          window.location.assign(redirectUrl); // Fallback 1
+          console.log('STEP 9: Redirect via window.location.assign executed');
+          setTimeout(() => {
+            window.location.href = redirectUrl; // Fallback 2
+            console.log('STEP 10: Delayed redirect executed');
+          }, 100);
+        } else {
+          throw new Error(result.error || 'Submission failed');
+        }
+      } catch (error) {
+        errorDiv.textContent = error.message || 'An error occurred. Please try again.';
+        console.error('STEP 11: Fetch error:', error);
+      } finally {
+        console.log('STEP 12: Re-enabling button');
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

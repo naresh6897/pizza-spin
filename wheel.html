@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spin the Wheel!</title>
+  <style>
+    body { font-family: Arial; background: #FFE8D6; text-align: center; padding: 20px; }
+    .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    canvas { margin: 20px auto; display: block; background: white; border-radius: 50%; }
+    .pointer { width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 30px solid red; position: absolute; top: 100px; left: 50%; transform: translateX(-50%); }
+    button { background: #E63946; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; margin-top: 20px; font-size: 18px; }
+    button:disabled { background: #999; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍕 Spin to Win!</h1>
+    <div class="pointer"></div>
+    <canvas id="wheel" width="400" height="400"></canvas>
+    <button id="spin-btn">SPIN!</button>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name') || 'Guest';
+    const prizes = ['10% Off', 'Free Garlic Bread', 'BOGO Pizza', 'Free Soda', 'Try Again'];
+    const colors = ['#E63946', '#F1FAEE', '#A8DADC', '#457B9D', '#1D3557'];
+    let currentAngle = 0;
+    let spinning = false;
+
+    function drawWheel() {
+      const canvas = document.getElementById('wheel');
+      const ctx = canvas.getContext('2d');
+      const arc = (2 * Math.PI) / prizes.length;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      prizes.forEach((prize, i) => {
+        const angle = currentAngle + i * arc;
+        ctx.beginPath();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.moveTo(200, 200);
+        ctx.arc(200, 200, 200, angle, angle + arc, false);
+        ctx.lineTo(200, 200);
+        ctx.fill();
+        ctx.save();
+        ctx.translate(200, 200);
+        ctx.rotate(angle + arc / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#000';
+        ctx.font = '16px Arial';
+        ctx.fillText(prize, 160, 10);
+        ctx.restore();
+      });
+    }
+
+    function spinWheel() {
+      if (spinning) return;
+      spinning = true;
+      document.getElementById('spin-btn').disabled = true;
+
+      let spinTime = 3000;
+      let spinAngleStart = Math.random() * 10 + 10;
+      let spinTimeElapsed = 0;
+
+      const spinInterval = setInterval(() => {
+        spinTimeElapsed += 30;
+        if (spinTimeElapsed >= spinTime) {
+          clearInterval(spinInterval);
+          determinePrize();
+          return;
+        }
+        let spinAngleDelta = spinAngleStart * (1 - Math.pow(spinTimeElapsed / spinTime, 3));
+        currentAngle += spinAngleDelta;
+        drawWheel();
+      }, 30);
+    }
+
+    async function determinePrize() {
+      const arc = (2 * Math.PI) / prizes.length;
+      let index = Math.floor(((currentAngle % (2 * Math.PI)) / arc) % prizes.length);
+      let prize = prizes[prizes.length - index - 1];
+
+      try {
+        const response = await fetch('/submit-offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, offer: prize })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          setTimeout(() => {
+            window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+          }, 1000);
+        } else {
+          alert('Failed to save your prize: ' + (result.error || 'Unknown error'));
+          document.getElementById('spin-btn').disabled = false; // Allow retry
+          spinning = false;
+        }
+      } catch (error) {
+        console.error('Error saving offer:', error);
+        alert('An error occurred while saving your prize. Please try again.');
+        document.getElementById('spin-btn').disabled = false; // Allow retry
+        spinning = false;
+      }
+    }
+
+    document.getElementById('spin-btn').addEventListener('click', spinWheel);
+    drawWheel();
+  </script>
+</body>
+</html>
