@@ -73,23 +73,16 @@
         if (response.ok && result.success) {
           const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
           console.log('STEP 7: Success! Redirecting to:', redirectUrl);
-          // Removed alert to prevent interference
           window.location.href = redirectUrl;
-          console.log('STEP 8: Redirect via window.location.href executed');
-          window.location.assign(redirectUrl); // Fallback 1
-          console.log('STEP 9: Redirect via window.location.assign executed');
-          setTimeout(() => {
-            window.location.href = redirectUrl; // Fallback 2
-            console.log('STEP 10: Delayed redirect executed');
-          }, 100);
+          console.log('STEP 8: Redirect executed');
         } else {
           throw new Error(result.error || 'Submission failed');
         }
       } catch (error) {
         errorDiv.textContent = error.message || 'An error occurred. Please try again.';
-        console.error('STEP 11: Fetch error:', error);
+        console.error('STEP 9: Fetch error:', error);
       } finally {
-        console.log('STEP 12: Re-enabling button');
+        console.log('STEP 10: Re-enabling button');
         submitBtn.disabled = false;
       }
     });

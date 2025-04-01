@@ -74,34 +74,13 @@
       }, 30);
     }
 
-    async function determinePrize() {
+    function determinePrize() {
       const arc = (2 * Math.PI) / prizes.length;
       let index = Math.floor(((currentAngle % (2 * Math.PI)) / arc) % prizes.length);
       let prize = prizes[prizes.length - index - 1];
 
-      try {
-        const response = await fetch('/submit-offer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, offer: prize })
-        });
-
-        const result = await response.json();
-        if (result.success) {
-          setTimeout(() => {
-            window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
-          }, 1000);
-        } else {
-          alert('Failed to save your prize: ' + (result.error || 'Unknown error'));
-          document.getElementById('spin-btn').disabled = false; // Allow retry
-          spinning = false;
-        }
-      } catch (error) {
-        console.error('Error saving offer:', error);
-        alert('An error occurred while saving your prize. Please try again.');
-        document.getElementById('spin-btn').disabled = false; // Allow retry
-        spinning = false;
-      }
+      // Directly redirect to thankyou.html without saving the offer
+      window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
     }
 
     document.getElementById('spin-btn').addEventListener('click', spinWheel);

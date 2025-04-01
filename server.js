@@ -29,7 +29,6 @@ async function initializeExcel() {
     { header: 'Name', key: 'name', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
-    { header: 'Offer', key: 'offer', width: 20 },
   ];
   return workbook;
 }
@@ -139,7 +138,7 @@ app.post('/submit', async (req, res) => {
     }
 
     const sheet = workbook.getWorksheet('Customers');
-    const newRow = sheet.addRow([name, email, phone, '']);
+    const newRow = sheet.addRow([name, email, phone]);
     newRow.commit();
 
     await uploadToGoogleDrive(workbook);
@@ -149,73 +148,6 @@ app.post('/submit', async (req, res) => {
   } catch (error) {
     console.error('Failed to save to Google Drive:', error.message);
     res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
-  }
-});
-
-// Handle offer submission after spinning
-app.post('/submit-offer', async (req, res) => {
-  const { name, offer } = req.body;
-
-  console.log('Received offer submission:', { name, offer });
-
-  if (!name || !offer) {
-    console.log('Validation failed: Missing name or offer');
-    return res.status(400).json({ success: false, error: 'Missing name or offer' });
-  }
-
-  try {
-    // Load the workbook from Google Drive
-    let workbook;
-    const response = await drive.files.list({
-      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-      fields: 'files(id)',
-    });
-
-    if (response.data.files.length > 0) {
-      const fileId = response.data.files[0].id;
-      const file = await drive.files.get(
-        { fileId, alt: 'media' },
-        { responseType: 'stream' }
-      );
-
-      await new Promise((resolve, reject) => {
-        const dest = require('fs').createWriteStream(TEMP_EXCEL_FILE);
-        file.data
-          .on('error', reject)
-          .pipe(dest)
-          .on('error', reject)
-          .on('finish', resolve);
-      });
-
-      workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.readFile(TEMP_EXCEL_FILE);
-      await fs.unlink(TEMP_EXCEL_FILE);
-    } else {
-      workbook = await initializeExcel();
-    }
-
-    const sheet = workbook.getWorksheet('Customers');
-    let rowFound = false;
-    sheet.eachRow((row, rowNumber) => {
-      if (rowNumber > 1 && row.getCell(1).value === name) {
-        row.getCell(4).value = offer;
-        row.commit();
-        rowFound = true;
-      }
-    });
-
-    if (!rowFound) {
-      const newRow = sheet.addRow([name, '', '', offer]);
-      newRow.commit();
-    }
-
-    await uploadToGoogleDrive(workbook);
-
-    console.log('Offer saved to Google Drive, sending success response');
-    res.status(200).json({ success: true, name, offer });
-  } catch (error) {
-    console.error('Failed to save offer to Google Drive:', error.message);
-    res.status(500).json({ success: false, error: `Failed to save offer: ${error.message}` });
   }
 });
 
