@@ -11,7 +11,7 @@ const TEMP_EXCEL_FILE = path.join(__dirname, 'temp_customers.xlsx'); // Temporar
 
 // Google Drive setup
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(__dirname, 'pizza-spin-drive-123456.json'), // Path to your service account JSON file
+  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT), // Use environment variable
   scopes: ['https://www.googleapis.com/auth/drive'],
 });
 const drive = google.drive({ version: 'v3', auth });
