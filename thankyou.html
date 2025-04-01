@@ -54,13 +54,17 @@
       text-decoration: none;
       margin: 10px 0;
     }
+    .share-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 10px;
+    }
     .share-button {
       color: #E63946;
       font-size: 1em;
       text-decoration: underline;
       cursor: pointer;
-      display: inline-block;
-      margin: 10px 0;
     }
   </style>
 </head>
@@ -70,7 +74,11 @@
     <h2>You won: <span id="prize"></span></h2>
     <p>Show this screen at 241 Pizza to claim your prize!</p>
     <a href="https://241pizza.com" class="cta-button">Claim Prize!</a><br>
-    <a href="#" id="share-btn" class="share-button">Share on X</a>
+    <div class="share-buttons">
+      <a href="#" id="share-x" class="share-button">Share on X</a>
+      <a href="#" id="share-instagram" class="share-button">Share on Instagram</a>
+      <a href="#" id="share-facebook" class="share-button">Share on Facebook</a>
+    </div>
   </div>
 
   <script>
@@ -81,11 +89,29 @@
     document.getElementById('prize').textContent = prize;
     document.getElementById('name').textContent = name;
 
-    // Share button functionality
-    document.getElementById('share-btn').addEventListener('click', (e) => {
+    // Share on X
+    document.getElementById('share-x').addEventListener('click', (e) => {
       e.preventDefault();
       const shareText = `I won ${prize} at 241 Pizza! 🍕 Spin to win your prize: https://241pizza.com/spin`;
       const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+      window.open(shareUrl, '_blank');
+    });
+
+    // Share on Instagram
+    document.getElementById('share-instagram').addEventListener('click', (e) => {
+      e.preventDefault();
+      const shareText = `I won ${prize} at 241 Pizza! 🍕 Spin to win your prize: https://241pizza.com/spin`;
+      // Instagram doesn't support direct sharing via URL, so we prompt the user to copy the text
+      navigator.clipboard.writeText(shareText).then(() => {
+        alert('Message copied to clipboard! Open Instagram to share it in a post or story.');
+        window.open('https://www.instagram.com/', '_blank');
+      });
+    });
+
+    // Share on Facebook
+    document.getElementById('share-facebook').addEventListener('click', (e) => {
+      e.preventDefault();
+      const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://241pizza.com/spin')}`;
       window.open(shareUrl, '_blank');
     });
   </script>
