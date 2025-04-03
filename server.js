@@ -15,9 +15,8 @@ const auth = new google.auth.GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/drive'],
 });
 const drive = google.drive({ version: 'v3', auth });
-const GOOGLE_DRIVE_FOLDER_ID = '1LtyP7jn3P5MgvLQD3fXU15M_lzqpog9o'; // Replace with your folder ID
+const GOOGLE_DRIVE_FOLDER_ID = '1IukhF0WohOBlbOtJCX-ltxgPs-Gi3EpL'; // Replace with your folder ID
 
-// Middleware
 app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
