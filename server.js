@@ -21,7 +21,9 @@ app.use(express.static(__dirname));
 
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Customers');
+  const sheet = workbook.addWorksheet('Customers', {
+    properties: { defaultColWidth: 20 }
+  });
   sheet.columns = [
     { header: 'Name', key: 'name', width: 20 },
     { header: 'Email', key: 'email', width: 30 },
@@ -36,8 +38,24 @@ async function loadLocalExcel() {
     workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
+
+    const sheet = workbook.getWorksheet('Customers');
+    if (!sheet) {
+      throw new Error('Worksheet "Customers" not found in the Excel file.');
+    }
+
+    if (sheet.columnCount > 16384) {
+      throw new Error('Excel file has too many columns. Recreating the file.');
+    }
+
+    const expectedColumns = ['Name', 'Email', 'Phone'];
+    const actualColumns = sheet.getRow(1).values.slice(1);
+    if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
+      console.log('Invalid column structure detected. Recreating the file.');
+      throw new Error('Invalid column structure.');
+    }
   } catch (error) {
-    console.log('Local Excel file not found, initializing new one:', error.message);
+    console.log('Error loading Excel file, initializing a new one:', error.message);
     workbook = await initializeExcel();
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
   }
@@ -137,14 +155,22 @@ async function checkDuplicates(email, phone) {
   const sheet = workbook.getWorksheet('Customers');
   let duplicateField = null;
 
+  // Normalize the input email and phone for comparison
+  const normalizedEmail = email.toString().trim().toLowerCase();
+  const normalizedPhone = phone.toString().trim();
+
+  console.log('Checking for duplicates with:', { email: normalizedEmail, phone: normalizedPhone });
+
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber > 1) { // Skip header row
-      const existingEmail = row.getCell('email').value;
-      const existingPhone = row.getCell('phone').value;
+      const existingEmail = row.getCell('email').value?.toString().trim().toLowerCase();
+      const existingPhone = row.getCell('phone').value?.toString().trim();
 
-      if (existingEmail === email) {
+      console.log(`Row ${rowNumber}:`, { existingEmail, existingPhone });
+
+      if (existingEmail === normalizedEmail) {
         duplicateField = 'email';
-      } else if (existingPhone === phone) {
+      } else if (existingPhone === normalizedPhone) {
         duplicateField = 'phone';
       }
     }
@@ -182,9 +208,12 @@ app.post('/submit', async (req, res) => {
     // If no duplicates, save the data
     const workbook = await loadLocalExcel();
     const sheet = workbook.getWorksheet('Customers');
-    const newRow = sheet.addRow([name, email, phone]);
+
+    // Add the new row
+    const newRow = sheet.addRow({ name, email, phone });
     newRow.commit();
 
+    // Save the updated Excel file
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
 
