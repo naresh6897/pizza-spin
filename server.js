@@ -7,8 +7,8 @@ const { google } = require('googleapis');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx'); // Local file for caching
-const GOOGLE_DRIVE_FOLDER_ID = '1IukhF0WohOBlbOtJCX-ltxgPs-Gi3EpL'; // Replace with your actual folder ID
+const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
+const GOOGLE_DRIVE_FOLDER_ID = '1IukhF0WohOBlbOtJCX-ltxgPs-Gi3EpL';
 
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
@@ -19,7 +19,6 @@ const drive = google.drive({ version: 'v3', auth });
 app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
-// Initialize the Excel workbook
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers');
@@ -31,7 +30,6 @@ async function initializeExcel() {
   return workbook;
 }
 
-// Load the local Excel file or initialize a new one
 async function loadLocalExcel() {
   let workbook;
   try {
@@ -46,7 +44,6 @@ async function loadLocalExcel() {
   return workbook;
 }
 
-// Upload the local Excel file to Google Drive
 async function uploadToGoogleDrive() {
   try {
     const existingFiles = await drive.files.list({
@@ -87,7 +84,6 @@ async function uploadToGoogleDrive() {
   }
 }
 
-// Periodic sync with Google Drive (every 5 minutes)
 function startGoogleDriveSync() {
   setInterval(async () => {
     try {
@@ -97,10 +93,9 @@ function startGoogleDriveSync() {
     } catch (error) {
       console.error('Periodic sync failed:', error.message);
     }
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 5 * 60 * 1000);
 }
 
-// Download the Excel file from Google Drive on server start
 async function initializeFromGoogleDrive() {
   try {
     const response = await drive.files.list({
@@ -136,11 +131,32 @@ async function initializeFromGoogleDrive() {
   }
 }
 
-// Handle form submission
+// Check for duplicate email or phone
+async function checkDuplicates(email, phone) {
+  const workbook = await loadLocalExcel();
+  const sheet = workbook.getWorksheet('Customers');
+  let duplicateField = null;
+
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber > 1) { // Skip header row
+      const existingEmail = row.getCell('email').value;
+      const existingPhone = row.getCell('phone').value;
+
+      if (existingEmail === email) {
+        duplicateField = 'email';
+      } else if (existingPhone === phone) {
+        duplicateField = 'phone';
+      }
+    }
+  });
+
+  return duplicateField;
+}
+
 app.post('/submit', async (req, res) => {
   const { name, email, phone } = req.body;
 
-  console.log('Received initial submission:', { name, email, phone });
+  console.log('Received submission:', { name, email, phone });
 
   if (!name || !email || !phone) {
     console.log('Validation failed: Missing required fields');
@@ -153,23 +169,32 @@ app.post('/submit', async (req, res) => {
   }
 
   try {
+    // Check for duplicates
+    const duplicateField = await checkDuplicates(email, phone);
+    if (duplicateField) {
+      console.log(`Duplicate ${duplicateField} detected:`, duplicateField === 'email' ? email : phone);
+      return res.status(409).json({
+        success: false,
+        error: `This ${duplicateField} already exists. One spin per customer!`
+      });
+    }
+
+    // If no duplicates, save the data
     const workbook = await loadLocalExcel();
     const sheet = workbook.getWorksheet('Customers');
     const newRow = sheet.addRow([name, email, phone]);
     newRow.commit();
 
-    // Save the updated Excel file locally
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
 
     res.status(200).json({ success: true, name });
   } catch (error) {
-    console.error('Failed to save to local Excel:', error.message);
+    console.error('Failed to process submission:', error.message);
     res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
   }
 });
 
-// Handle file download
 app.get('/download', async (req, res) => {
   try {
     const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
@@ -187,10 +212,9 @@ app.get('/download', async (req, res) => {
   }
 });
 
-// Initialize the server
 (async () => {
-  await initializeFromGoogleDrive(); // Download or initialize the Excel file on server start
-  startGoogleDriveSync(); // Start periodic syncing with Google Drive
+  await initializeFromGoogleDrive();
+  startGoogleDriveSync();
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

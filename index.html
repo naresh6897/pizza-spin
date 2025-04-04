@@ -2,12 +2,11 @@
 <html>
 <head>
   <title>24/1 Pizza - Enter to Spin!</title>
-  <!-- Preload the wheel page background image -->
   <link rel="preload" href="new images/pepperoni-pizza-closeup.webp" as="image">
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: #FFE8D6;
+      background: #976742;
       text-align: center;
       padding: 0;
       margin: 0;
@@ -166,7 +165,7 @@
       }
 
       submitBtn.disabled = true;
-      loadingDiv.style.display = 'block'; // Show loading indicator
+      loadingDiv.style.display = 'block';
 
       try {
         const response = await fetch('/submit', {
@@ -175,26 +174,25 @@
           body: JSON.stringify({ name, email, phone }),
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText}`);
+          throw new Error(result.error || `Server error: ${response.status}`);
         }
 
-        const result = await response.json();
-        if (response.ok && result.success) {
+        if (result.success) {
           const redirectUrl = `wheel.html?name=${encodeURIComponent(name)}`;
           window.location.href = redirectUrl;
         } else {
-          throw new Error(result.error || 'Submission failed');
+          errorDiv.textContent = result.error || 'An error occurred. Please try again.';
         }
       } catch (error) {
         errorDiv.textContent = error.message || 'An error occurred. Please try again.';
-        loadingDiv.style.display = 'none';
       } finally {
         submitBtn.disabled = false;
+        loadingDiv.style.display = 'none';
       }
     });
   </script>
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92adca0fedb3bfd8',t:'MTc0MzczODA3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
