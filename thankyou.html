@@ -5,7 +5,7 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: url('new images/pizza-slice-soda.jpg') center/cover no-repeat fixed;
+      background: url('new images/aigen.jpg') center/100% 100% no-repeat fixed;
       background-color: #FFE8D6;
       text-align: center;
       padding: 0;
@@ -36,6 +36,16 @@
       z-index: 1;
       animation: fadeIn 1s ease-in;
     }
+    .pizza-slices {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      max-width: 400px;
+      z-index: 0;
+      opacity: 0.3; /* Slight transparency to blend with the container */
+    }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
@@ -45,15 +55,21 @@
       font-weight: bold;
       font-size: 2.8em;
       margin-bottom: 10px;
+      position: relative;
+      z-index: 1;
     }
     h2 {
       color: #F4A261;
       font-size: 1.8em;
       margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
     }
     p {
       font-size: 1.2em;
       color: #666;
+      position: relative;
+      z-index: 1;
     }
     .cta-button {
       background: #E63946;
@@ -68,6 +84,8 @@
       text-decoration: none;
       margin: 10px 0;
       transition: background 0.3s;
+      position: relative;
+      z-index: 1;
     }
     .cta-button:hover {
       background: #F4A261;
@@ -77,6 +95,8 @@
       justify-content: center;
       gap: 20px;
       margin-top: 20px;
+      position: relative;
+      z-index: 1;
     }
     .share-button {
       color: #E63946;
@@ -92,18 +112,20 @@
       .container { padding: 20px; }
       h1 { font-size: 2em; }
       h2 { font-size: 1.5em; }
+      .pizza-slices { width: 60%; }
     }
   </style>
 </head>
 <body>
   <div class="container">
+    <img src="new images/pizza-slices.png" alt="Pizza Slices" class="pizza-slices">
     <h1>🎉 Congratulations, <span id="name"></span>!</h1>
     <h2>You won: <span id="prize"></span></h2>
-    <p>Show this screen at 24/1 Pizza to claim your prize!</p>
+    <p>Show this screen at 241 Pizza to claim your prize!</p>
     <a href="https://241pizza.com" class="cta-button">Claim Prize!</a><br>
     <div class="share-buttons">
       <a href="https://twitter.com/241pizza" target="_blank" class="share-button">Follow us on X</a>
-      <a href="https://www.instagram.com/241pizzawinston" target="_blank" class="share-button">Follow us on Instagram</a>
+      <a href="https://www.instagram.com/241pizza" target="_blank" class="share-button">Follow us on Instagram</a>
     </div>
   </div>
 
