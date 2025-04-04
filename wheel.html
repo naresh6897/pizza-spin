@@ -5,7 +5,8 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: url('new images/pepperoni-pizza-closeup.jpg') center/cover no-repeat fixed;
+      /* Use WebP for better compression and clarity */
+      background: url('new images/pepperoni-pizza-closeup.webp') center/cover no-repeat fixed;
       background-color: #FFF9E5; /* Light pastel yellow as fallback */
       text-align: center;
       padding: 0;
@@ -22,7 +23,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.3); /* Subtle overlay for readability */
+      background: rgba(0, 0, 0, 0.4); /* Slightly darker overlay for better contrast */
     }
     .container {
       max-width: 600px;
@@ -102,75 +103,79 @@
   </div>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const name = params.get('name') || 'Guest';
-    document.getElementById('user-name').textContent = name;
+    // Defer wheel rendering until the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const name = params.get('name') || 'Guest';
+      document.getElementById('user-name').textContent = name;
 
-    const prizes = ['Free Dip', 'Free Pop', 'Free Chipbag', '10% Off', 'Free Soda'];
-    let currentAngle = 0;
-    let spinning = false;
+      const prizes = ['Free Dip', 'Free Pop', 'Free Chipbag', '10% Off', 'Free Soda'];
+      let currentAngle = 0;
+      let spinning = false;
 
-    const canvas = document.getElementById('wheel');
-    const ctx = canvas.getContext('2d');
-    const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C', '#9BC53D']; // Bright colors
-    const radius = 225;
-    const centerX = 225;
-    const centerY = 225;
-    const arc = (2 * Math.PI) / prizes.length;
+      const canvas = document.getElementById('wheel');
+      const ctx = canvas.getContext('2d');
+      const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C', '#9BC53D']; // Bright colors
+      const radius = 225;
+      const centerX = 225;
+      const centerY = 225;
+      const arc = (2 * Math.PI) / prizes.length;
 
-    function drawWheel() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i < prizes.length; i++) {
-        const startAngle = i * arc - Math.PI / 2;
-        const endAngle = (i + 1) * arc - Math.PI / 2;
+      function drawWheel() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < prizes.length; i++) {
+          const startAngle = i * arc - Math.PI / 2;
+          const endAngle = (i + 1) * arc - Math.PI / 2;
 
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-        ctx.closePath();
-        ctx.fillStyle = colors[i];
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+          ctx.closePath();
+          ctx.fillStyle = colors[i];
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3;
+          ctx.stroke();
 
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(startAngle + arc / 2);
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#333'; // Darker text for contrast
-        ctx.font = 'bold 18px Poppins';
-        ctx.fillText(prizes[i], 120, 0);
-        ctx.restore();
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(startAngle + arc / 2);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#333'; // Darker text for contrast
+          ctx.font = 'bold 18px Poppins';
+          ctx.fillText(prizes[i], 120, 0);
+          ctx.restore();
+        }
       }
-    }
 
-    drawWheel();
+      drawWheel();
 
-    function spinWheel() {
-      if (spinning) return;
-      spinning = true;
-      document.getElementById('spin-btn').disabled = true;
+      function spinWheel() {
+        if (spinning) return;
+        spinning = true;
+        document.getElementById('spin-btn').disabled = true;
 
-      let spinTime = 4000;
-      let spinAngleStart = Math.random() * 360 + 720;
-      currentAngle += spinAngleStart;
+        let spinTime = 4000;
+        let spinAngleStart = Math.random() * 360 + 720;
+        currentAngle += spinAngleStart;
 
-      canvas.style.transform = `rotate(${currentAngle}deg)`;
+        canvas.style.transform = `rotate(${currentAngle}deg)`;
 
-      setTimeout(() => {
-        determinePrize();
-      }, spinTime);
-    }
+        setTimeout(() => {
+          determinePrize();
+        }, spinTime);
+      }
 
-    function determinePrize() {
-      const arcDeg = 360 / prizes.length;
-      let index = Math.floor(((currentAngle % 360) / arcDeg) % prizes.length);
-      let prize = prizes[prizes.length - index - 1];
-      window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
-    }
+      function determinePrize() {
+        const arcDeg = 360 / prizes.length;
+        let index = Math.floor(((currentAngle % 360) / arcDeg) % prizes.length);
+        let prize = prizes[prizes.length - index - 1];
+        window.location.href = `thankyou.html?prize=${encodeURIComponent(prize)}&name=${encodeURIComponent(name)}`;
+      }
 
-    document.getElementById('spin-btn').addEventListener('click', spinWheel);
+      document.getElementById('spin-btn').addEventListener('click', spinWheel);
+    });
   </script>
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92adca0fecda06f6',t:'MTc0MzczODA3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>

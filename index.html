@@ -2,6 +2,8 @@
 <html>
 <head>
   <title>24/1 Pizza - Enter to Spin!</title>
+  <!-- Preload the wheel page background image -->
+  <link rel="preload" href="new images/pepperoni-pizza-closeup.webp" as="image">
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
@@ -110,6 +112,12 @@
       font-weight: bold;
       margin-top: 10px;
     }
+    .loading {
+      display: none;
+      font-size: 1.2em;
+      color: #E63946;
+      margin-top: 10px;
+    }
     @media (max-width: 600px) {
       .hero { height: 200px; }
       .hero img.logo { width: 150px; }
@@ -133,6 +141,7 @@
       <button type="submit" id="submit-btn">Spin!</button>
     </form>
     <div id="error" class="error"></div>
+    <div id="loading" class="loading">Loading...</div>
   </div>
 
   <script>
@@ -140,6 +149,7 @@
       e.preventDefault();
       const submitBtn = document.getElementById('submit-btn');
       const errorDiv = document.getElementById('error');
+      const loadingDiv = document.getElementById('loading');
       errorDiv.textContent = '';
 
       const name = document.getElementById('name').value.trim();
@@ -156,6 +166,7 @@
       }
 
       submitBtn.disabled = true;
+      loadingDiv.style.display = 'block'; // Show loading indicator
 
       try {
         const response = await fetch('/submit', {
@@ -178,10 +189,12 @@
         }
       } catch (error) {
         errorDiv.textContent = error.message || 'An error occurred. Please try again.';
+        loadingDiv.style.display = 'none';
       } finally {
         submitBtn.disabled = false;
       }
     });
   </script>
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92adca0fedb3bfd8',t:'MTc0MzczODA3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
