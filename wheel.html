@@ -5,7 +5,7 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: url('images/new-wooden-table-bg.jpg') center/cover no-repeat fixed;
+      background: url('new images/pepperoni-pizza-closeup.jpg') center/cover no-repeat fixed;
       background-color: #FFF9E5; /* Light pastel yellow as fallback */
       text-align: center;
       padding: 0;
@@ -15,12 +15,22 @@
       color: #333;
       line-height: 1.6;
     }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3); /* Subtle overlay for readability */
+    }
     .container {
       max-width: 600px;
       margin: 20px auto;
       background: transparent;
       padding: 30px;
       position: relative;
+      z-index: 1;
     }
     .wheel-container {
       position: relative;
