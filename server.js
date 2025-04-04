@@ -7,18 +7,19 @@ const { google } = require('googleapis');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const TEMP_EXCEL_FILE = path.join(__dirname, 'temp_customers.xlsx');
+const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx'); // Local file for caching
+const GOOGLE_DRIVE_FOLDER_ID = '1IukhF0WohOBlbOtJCX-ltxgPs-Gi3EpL'; // Replace with your actual folder ID
 
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
   scopes: ['https://www.googleapis.com/auth/drive'],
 });
 const drive = google.drive({ version: 'v3', auth });
-const GOOGLE_DRIVE_FOLDER_ID = '1IukhF0WohOBlbOtJCX-ltxgPs-Gi3EpL'; // Replace with your actual folder ID
 
 app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
+// Initialize the Excel workbook
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers');
@@ -30,11 +31,24 @@ async function initializeExcel() {
   return workbook;
 }
 
-async function uploadToGoogleDrive(workbook) {
+// Load the local Excel file or initialize a new one
+async function loadLocalExcel() {
+  let workbook;
   try {
-    await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
-    console.log('Temporary Excel file created:', TEMP_EXCEL_FILE);
+    workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+    console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
+  } catch (error) {
+    console.log('Local Excel file not found, initializing new one:', error.message);
+    workbook = await initializeExcel();
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+  }
+  return workbook;
+}
 
+// Upload the local Excel file to Google Drive
+async function uploadToGoogleDrive() {
+  try {
     const existingFiles = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
       fields: 'files(id, name)',
@@ -47,7 +61,7 @@ async function uploadToGoogleDrive(workbook) {
 
     const media = {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      body: require('fs').createReadStream(TEMP_EXCEL_FILE),
+      body: require('fs').createReadStream(LOCAL_EXCEL_FILE),
     };
 
     let file;
@@ -67,15 +81,62 @@ async function uploadToGoogleDrive(workbook) {
       });
       console.log('Created new file in Google Drive, ID:', file.data.id);
     }
-
-    await fs.unlink(TEMP_EXCEL_FILE);
-    console.log('Temporary file deleted:', TEMP_EXCEL_FILE);
   } catch (error) {
     console.error('Failed to upload to Google Drive:', error.message);
     throw error;
   }
 }
 
+// Periodic sync with Google Drive (every 5 minutes)
+function startGoogleDriveSync() {
+  setInterval(async () => {
+    try {
+      console.log('Starting periodic sync with Google Drive...');
+      await uploadToGoogleDrive();
+      console.log('Periodic sync completed.');
+    } catch (error) {
+      console.error('Periodic sync failed:', error.message);
+    }
+  }, 5 * 60 * 1000); // 5 minutes
+}
+
+// Download the Excel file from Google Drive on server start
+async function initializeFromGoogleDrive() {
+  try {
+    const response = await drive.files.list({
+      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
+      fields: 'files(id)',
+    });
+
+    if (response.data.files.length > 0) {
+      const fileId = response.data.files[0].id;
+      const file = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'stream' }
+      );
+
+      await new Promise((resolve, reject) => {
+        const dest = require('fs').createWriteStream(LOCAL_EXCEL_FILE);
+        file.data
+          .on('error', reject)
+          .pipe(dest)
+          .on('error', reject)
+          .on('finish', resolve);
+      });
+      console.log('Downloaded Excel file from Google Drive to local:', LOCAL_EXCEL_FILE);
+    } else {
+      console.log('No Excel file found in Google Drive, initializing new one locally.');
+      const workbook = await initializeExcel();
+      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    }
+  } catch (error) {
+    console.error('Error initializing from Google Drive:', error.message);
+    const workbook = await initializeExcel();
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+  }
+}
+
+// Handle form submission
 app.post('/submit', async (req, res) => {
   const { name, email, phone } = req.body;
 
@@ -92,80 +153,46 @@ app.post('/submit', async (req, res) => {
   }
 
   try {
-    let workbook;
-    try {
-      const response = await drive.files.list({
-        q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-        fields: 'files(id)',
-      });
-
-      if (response.data.files.length > 0) {
-        const fileId = response.data.files[0].id;
-        const file = await drive.files.get(
-          { fileId, alt: 'media' },
-          { responseType: 'stream' }
-        );
-
-        await new Promise((resolve, reject) => {
-          const dest = require('fs').createWriteStream(TEMP_EXCEL_FILE);
-          file.data
-            .on('error', reject)
-            .pipe(dest)
-            .on('error', reject)
-            .on('finish', resolve);
-        });
-
-        workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.readFile(TEMP_EXCEL_FILE);
-        await fs.unlink(TEMP_EXCEL_FILE);
-      } else {
-        workbook = await initializeExcel();
-      }
-    } catch (error) {
-      console.error('Error loading Excel from Drive:', error.message);
-      workbook = await initializeExcel();
-    }
-
+    const workbook = await loadLocalExcel();
     const sheet = workbook.getWorksheet('Customers');
     const newRow = sheet.addRow([name, email, phone]);
     newRow.commit();
 
-    await uploadToGoogleDrive(workbook);
+    // Save the updated Excel file locally
+    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
 
-    console.log('Data saved to Google Drive, sending success response');
     res.status(200).json({ success: true, name });
   } catch (error) {
-    console.error('Failed to save to Google Drive:', error.message);
+    console.error('Failed to save to local Excel:', error.message);
     res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
   }
 });
 
+// Handle file download
 app.get('/download', async (req, res) => {
   try {
-    const response = await drive.files.list({
-      q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
-      fields: 'files(id)',
-    });
-
-    if (response.data.files.length === 0) {
+    const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+    if (!fileExists) {
       return res.status(404).send('No customer data available yet');
     }
 
-    const fileId = response.data.files[0].id;
-    const file = await drive.files.get(
-      { fileId, alt: 'media' },
-      { responseType: 'stream' }
-    );
-
     res.setHeader('Content-Disposition', 'attachment; filename=customers.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    file.data.pipe(res);
+    const fileStream = require('fs').createReadStream(LOCAL_EXCEL_FILE);
+    fileStream.pipe(res);
   } catch (error) {
-    console.error('Error downloading file from Google Drive:', error.message);
+    console.error('Error downloading local file:', error.message);
     res.status(500).send('Error downloading file');
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Initialize the server
+(async () => {
+  await initializeFromGoogleDrive(); // Download or initialize the Excel file on server start
+  startGoogleDriveSync(); // Start periodic syncing with Google Drive
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+})();
