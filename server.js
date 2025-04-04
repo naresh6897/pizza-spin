@@ -7,20 +7,18 @@ const { google } = require('googleapis');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const TEMP_EXCEL_FILE = path.join(__dirname, 'temp_customers.xlsx'); // Temporary file
+const TEMP_EXCEL_FILE = path.join(__dirname, 'temp_customers.xlsx');
 
-// Google Drive setup
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT), // Use environment variable
+  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
   scopes: ['https://www.googleapis.com/auth/drive'],
 });
 const drive = google.drive({ version: 'v3', auth });
-const GOOGLE_DRIVE_FOLDER_ID = '1IukhF0WohOBlbOtJCX-ltxgPs-Gi3EpL'; // Replace with your folder ID
+const GOOGLE_DRIVE_FOLDER_ID = 'your-folder-id-here'; // Replace with your actual folder ID
 
 app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
-// Initialize Excel file (in memory, not on disk initially)
 async function initializeExcel() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Customers');
@@ -32,14 +30,11 @@ async function initializeExcel() {
   return workbook;
 }
 
-// Upload Excel file to Google Drive
 async function uploadToGoogleDrive(workbook) {
   try {
-    // Save the workbook to a temporary file
     await workbook.xlsx.writeFile(TEMP_EXCEL_FILE);
     console.log('Temporary Excel file created:', TEMP_EXCEL_FILE);
 
-    // Check if the file already exists in Google Drive
     const existingFiles = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
       fields: 'files(id, name)',
@@ -57,7 +52,6 @@ async function uploadToGoogleDrive(workbook) {
 
     let file;
     if (existingFiles.data.files.length > 0) {
-      // Update existing file
       const fileId = existingFiles.data.files[0].id;
       file = await drive.files.update({
         fileId: fileId,
@@ -66,7 +60,6 @@ async function uploadToGoogleDrive(workbook) {
       });
       console.log('Updated file in Google Drive, ID:', file.data.id);
     } else {
-      // Create new file
       file = await drive.files.create({
         resource: fileMetadata,
         media: media,
@@ -75,7 +68,6 @@ async function uploadToGoogleDrive(workbook) {
       console.log('Created new file in Google Drive, ID:', file.data.id);
     }
 
-    // Delete the temporary file
     await fs.unlink(TEMP_EXCEL_FILE);
     console.log('Temporary file deleted:', TEMP_EXCEL_FILE);
   } catch (error) {
@@ -84,7 +76,6 @@ async function uploadToGoogleDrive(workbook) {
   }
 }
 
-// Handle initial form submission
 app.post('/submit', async (req, res) => {
   const { name, email, phone } = req.body;
 
@@ -101,7 +92,6 @@ app.post('/submit', async (req, res) => {
   }
 
   try {
-    // Load or initialize the workbook
     let workbook;
     try {
       const response = await drive.files.list({
@@ -150,7 +140,6 @@ app.post('/submit', async (req, res) => {
   }
 });
 
-// Endpoint to download customers.xlsx
 app.get('/download', async (req, res) => {
   try {
     const response = await drive.files.list({
@@ -177,7 +166,6 @@ app.get('/download', async (req, res) => {
   }
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

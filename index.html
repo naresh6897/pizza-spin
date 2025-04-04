@@ -1,27 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>241 Pizza - Enter to Spin!</title>
+  <title>Your Pizza Shop - Enter to Spin!</title>
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
       background: #FFE8D6;
       text-align: center;
-      padding: 20px;
+      padding: 0;
       margin: 0;
       position: relative;
       overflow-x: hidden;
+      color: #333;
+      line-height: 1.6;
     }
     .hero {
-      background: url('images/pizza-meal.jpg') center/cover no-repeat; /* Provided pizza meal image */
-      height: 250px;
+      background: url('images/new-pizza-meal.jpg') center/cover no-repeat;
+      height: 300px;
       position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       color: white;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.7);
     }
     .hero::before {
       content: '';
@@ -30,29 +32,28 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5); /* Dark overlay */
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
     }
     .hero img.logo {
-      width: 150px;
+      width: 200px;
       position: relative;
       z-index: 1;
+      filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
     }
     .hero h1 {
       position: relative;
       z-index: 1;
-      font-size: 1.8em;
+      font-size: 2em;
       color: #F4A261;
       margin: 10px 0;
     }
     .container {
-      max-width: 500px;
+      max-width: 600px;
       margin: 20px auto;
-      background: white url('images/cheese-texture.jpg') center/cover; /* Generated cheese texture (JPG) */
-      background-opacity: 0.1;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      border: 2px dashed #E63946;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
       position: relative;
       animation: fadeIn 1s ease-in;
     }
@@ -60,47 +61,66 @@
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    h1 { color: #E63946; font-weight: bold; }
+    h1 {
+      color: #E63946;
+      font-weight: bold;
+      font-size: 2.5em;
+      margin-bottom: 20px;
+    }
+    p {
+      font-size: 1.2em;
+      color: #666;
+    }
     input {
-      padding: 10px;
-      margin: 10px 0;
-      width: 80%;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      padding-left: 40px;
+      padding: 15px;
+      margin: 15px 0;
+      width: 90%;
+      border: 2px solid #E63946;
+      border-radius: 8px;
+      font-size: 1.1em;
+      transition: border-color 0.3s;
+    }
+    input:focus {
+      border-color: #F4A261;
+      outline: none;
     }
     input::placeholder {
-      padding-left: 20px;
-    }
-    input[name="name"]::before,
-    input[name="email"]::before,
-    input[name="phone"]::before {
-      content: '🍕';
-      position: absolute;
-      left: 10px;
-      font-size: 20px;
-      line-height: 40px;
+      color: #999;
     }
     button {
       background: #E63946;
       color: white;
-      padding: 10px 20px;
+      padding: 15px 30px;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 1.2em;
+      font-size: 1.3em;
       font-weight: bold;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #F4A261;
     }
     button:disabled {
       background: #ccc;
       cursor: not-allowed;
     }
-    .error { color: #E63946; margin-top: 10px; }
+    .error {
+      color: #E63946;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    @media (max-width: 600px) {
+      .hero { height: 200px; }
+      .hero img.logo { width: 150px; }
+      .container { padding: 15px; }
+      input { width: 100%; }
+    }
   </style>
 </head>
 <body>
   <div class="hero">
-    <img src="images/241-pizza-logo.png" alt="241 Pizza Logo" class="logo"> <!-- Provided logo -->
+    <img src="images/your-pizza-logo.png" alt="Your Pizza Shop Logo" class="logo">
     <h1>Spin to Win Delicious Prizes! 🍕</h1>
   </div>
   <div class="container">

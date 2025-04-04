@@ -5,26 +5,28 @@
   <style>
     body {
       font-family: 'Poppins', Arial, sans-serif;
-      background: #FFE8D6 url('images/wooden-table-bg.jpg') center/cover no-repeat; /* Generated wooden table background */
+      background: url('images/new-wooden-table-bg.jpg') center/cover no-repeat fixed;
+      background-color: #FFF9E5; /* Light pastel yellow as fallback */
       text-align: center;
-      padding: 20px;
+      padding: 0;
       margin: 0;
       position: relative;
       overflow-x: hidden;
+      color: #333;
+      line-height: 1.6;
     }
     .container {
-      max-width: 500px;
-      margin: 0 auto;
+      max-width: 600px;
+      margin: 20px auto;
       background: transparent;
-      padding: 20px;
+      padding: 30px;
       position: relative;
     }
     .wheel-container {
       position: relative;
-      width: 400px;
-      height: 400px;
-      margin: 20px auto;
-      border: 2px solid #E63946; /* Debugging border to ensure visibility */
+      width: 450px;
+      height: 450px;
+      margin: 40px auto;
     }
     #wheel {
       width: 100%;
@@ -32,16 +34,16 @@
       position: absolute;
       top: 0;
       left: 0;
-      transition: transform 3s ease-out;
+      transition: transform 4s ease-out;
     }
     .pointer {
       width: 0;
       height: 0;
-      border-left: 25px solid transparent;
-      border-right: 25px solid transparent;
-      border-top: 50px solid #E63946;
+      border-left: 30px solid transparent;
+      border-right: 30px solid transparent;
+      border-top: 60px solid #E63946;
       position: absolute;
-      top: 50px;
+      top: 0;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1;
@@ -49,18 +51,34 @@
     button {
       background: #E63946;
       color: white;
-      padding: 10px 20px;
+      padding: 15px 30px;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 1.2em;
+      font-size: 1.3em;
       font-weight: bold;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #F4A261;
     }
     button:disabled {
       background: #ccc;
       cursor: not-allowed;
     }
-    h1 { color: #E63946; font-weight: bold; }
+    h1 {
+      color: #E63946;
+      font-weight: bold;
+      font-size: 2.8em;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    #user-name {
+      color: #F4A261;
+    }
+    @media (max-width: 600px) {
+      .wheel-container { width: 300px; height: 300px; }
+      h1 { font-size: 2em; }
+    }
   </style>
 </head>
 <body>
@@ -68,7 +86,7 @@
     <h1>🍕 Let’s Spin, <span id="user-name">Guest</span>!</h1>
     <div class="wheel-container">
       <div class="pointer"></div>
-      <canvas id="wheel" width="400" height="400"></canvas>
+      <canvas id="wheel" width="450" height="450"></canvas>
     </div>
     <button id="spin-btn">Spin!</button>
   </div>
@@ -84,10 +102,10 @@
 
     const canvas = document.getElementById('wheel');
     const ctx = canvas.getContext('2d');
-    const colors = ['#F4A261', '#E76F51', '#F4A261', '#E76F51', '#F4A261'];
-    const radius = 200;
-    const centerX = 200;
-    const centerY = 200;
+    const colors = ['#FFD60A', '#FF70A6', '#00F5D4', '#FF9F1C', '#9BC53D']; // Bright colors
+    const radius = 225;
+    const centerX = 225;
+    const centerY = 225;
     const arc = (2 * Math.PI) / prizes.length;
 
     function drawWheel() {
@@ -103,16 +121,16 @@
         ctx.fillStyle = colors[i];
         ctx.fill();
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(startAngle + arc / 2);
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px Poppins';
-        ctx.fillText(prizes[i], 100, 0);
+        ctx.fillStyle = '#333'; // Darker text for contrast
+        ctx.font = 'bold 18px Poppins';
+        ctx.fillText(prizes[i], 120, 0);
         ctx.restore();
       }
     }
@@ -124,8 +142,8 @@
       spinning = true;
       document.getElementById('spin-btn').disabled = true;
 
-      let spinTime = 3000;
-      let spinAngleStart = Math.random() * 360 + 720; // At least 2 full rotations
+      let spinTime = 4000;
+      let spinAngleStart = Math.random() * 360 + 720;
       currentAngle += spinAngleStart;
 
       canvas.style.transform = `rotate(${currentAngle}deg)`;
