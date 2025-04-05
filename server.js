@@ -38,13 +38,11 @@ async function initializeExcel() {
 async function loadLocalExcel() {
   let workbook;
   try {
-    // Check if the file exists
     const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
     if (!fileExists) {
       throw new Error('Excel file does not exist. Creating a new one.');
     }
 
-    // Check if the file is empty or too small to be a valid Excel file
     const fileStats = await fs.stat(LOCAL_EXCEL_FILE);
     if (fileStats.size < 1000) {
       throw new Error('Excel file is too small or empty. Recreating the file.');
@@ -265,28 +263,25 @@ app.post('/submit', async (req, res) => {
       }
     }
 
-    // Add a small delay to ensure the file write is complete
-    await delay(500);
+    // Increase delay to ensure file write is complete
+    await delay(1000);
 
-    // Verify the file was updated by reading it back (with error handling)
+    // Basic validation to ensure the file can be read
     try {
-      const updatedWorkbook = new ExcelJS.Workbook();
-      await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-      const updatedSheet = updatedWorkbook.getWorksheet('Customers');
-      const lastRow = updatedSheet.lastRow;
-      if (lastRow) {
-        console.log('Last row in Excel file after save:', {
-          name: lastRow.getCell('name')?.value || 'N/A',
-          email: lastRow.getCell('email')?.value || 'N/A',
-          phone: lastRow.getCell('phone')?.value || 'N/A',
-        });
-      } else {
-        console.log('No last row found in Excel file after save.');
+      const validationWorkbook = new ExcelJS.Workbook();
+      await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+      const validationSheet = validationWorkbook.getWorksheet('Customers');
+      if (validationSheet.columnCount > 16384) {
+        throw new Error('File has too many columns after write.');
       }
-    } catch (verifyError) {
-      console.error('Failed to verify Excel file after save:', verifyError.message);
-      // Log the failure but do not attempt to recreate the file here to avoid recursive errors
-      console.log('Proceeding without recreating the file to ensure response is sent.');
+      console.log('File validated successfully after write.');
+    } catch (validationError) {
+      console.error('Failed to validate file after write:', validationError.message);
+      workbook = await initializeExcel();
+      sheet = workbook.getWorksheet('Customers');
+      sheet.addRow({ name, email, phone });
+      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      console.log('Recreated and saved new Excel file due to validation failure:', LOCAL_EXCEL_FILE);
     }
 
     // Send the success response
@@ -300,7 +295,6 @@ app.post('/submit', async (req, res) => {
     }
   } finally {
     isFileWriting = false;
-    // Double-check that a response was sent
     if (!responseSent) {
       console.error('Response was not sent in try-catch block, sending default error response.');
       res.status(500).json({ success: false, error: 'Internal server error: Response not sent' });
