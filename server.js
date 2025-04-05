@@ -249,6 +249,10 @@ app.post('/submit', async (req, res) => {
     try {
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
       console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
+
+      // Check file permissions
+      await fs.access(LOCAL_EXCEL_FILE, fs.constants.W_OK);
+      console.log('File is writable:', LOCAL_EXCEL_FILE);
     } catch (writeError) {
       console.error('Failed to write Excel file:', writeError.message);
       if (writeError.message.includes('Out of bounds')) {
@@ -266,15 +270,24 @@ app.post('/submit', async (req, res) => {
     // Increase delay to ensure file write is complete
     await delay(1000);
 
-    // Basic validation to ensure the file can be read
+    // Validate the file by checking the last row
     try {
       const validationWorkbook = new ExcelJS.Workbook();
       await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
       const validationSheet = validationWorkbook.getWorksheet('Customers');
-      if (validationSheet.columnCount > 16384) {
-        throw new Error('File has too many columns after write.');
+      const lastRow = validationSheet.lastRow;
+      if (lastRow) {
+        const lastName = lastRow.getCell('name')?.value?.toString().trim();
+        const lastEmail = lastRow.getCell('email')?.value?.toString().trim();
+        const lastPhone = lastRow.getCell('phone')?.value?.toString().trim();
+        console.log('Last row in file after write:', { name: lastName, email: lastEmail, phone: lastPhone });
+        if (lastName !== name || lastEmail !== email || lastPhone !== phone) {
+          throw new Error('Last row does not match the submitted data.');
+        }
+        console.log('File validated successfully after write with matching data.');
+      } else {
+        throw new Error('No last row found in file after write.');
       }
-      console.log('File validated successfully after write.');
     } catch (validationError) {
       console.error('Failed to validate file after write:', validationError.message);
       workbook = await initializeExcel();
@@ -282,6 +295,14 @@ app.post('/submit', async (req, res) => {
       sheet.addRow({ name, email, phone });
       await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
       console.log('Recreated and saved new Excel file due to validation failure:', LOCAL_EXCEL_FILE);
+    }
+
+    // Force immediate Google Drive sync
+    try {
+      await uploadToGoogleDrive();
+      console.log('Successfully synced file to Google Drive after write.');
+    } catch (syncError) {
+      console.error('Failed to sync file to Google Drive:', syncError.message);
     }
 
     // Send the success response
