@@ -38,6 +38,12 @@ async function initializeExcel() {
 async function loadLocalExcel() {
   let workbook;
   try {
+    // Check if the file exists and has content
+    const fileStats = await fs.stat(LOCAL_EXCEL_FILE);
+    if (fileStats.size === 0) {
+      throw new Error('Excel file is empty. Recreating the file.');
+    }
+
     workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(LOCAL_EXCEL_FILE);
     console.log('Loaded local Excel file:', LOCAL_EXCEL_FILE);
@@ -47,10 +53,17 @@ async function loadLocalExcel() {
       throw new Error('Worksheet "Customers" not found in the Excel file.');
     }
 
+    // Check if the worksheet has any rows
+    if (sheet.rowCount === 0) {
+      throw new Error('Worksheet is empty. Recreating the file.');
+    }
+
+    // Check column count
     if (sheet.columnCount > 16384) {
       throw new Error('Excel file has too many columns. Recreating the file.');
     }
 
+    // Validate column structure
     const expectedColumns = ['Name', 'Email', 'Phone'];
     const actualColumns = sheet.getRow(1).values.slice(1);
     if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
@@ -67,7 +80,6 @@ async function loadLocalExcel() {
 }
 
 async function uploadToGoogleDrive() {
-  // Skip upload if the file is being written
   if (isFileWriting) {
     console.log('File is being written, skipping Google Drive sync.');
     return;
@@ -215,8 +227,8 @@ app.post('/submit', async (req, res) => {
     }
 
     // If no duplicates, save the data
-    const workbook = await loadLocalExcel();
-    const sheet = workbook.getWorksheet('Customers');
+    let workbook = await loadLocalExcel();
+    let sheet = workbook.getWorksheet('Customers');
 
     // Add the new row
     const newRow = sheet.addRow({ name, email, phone });
@@ -226,8 +238,23 @@ app.post('/submit', async (req, res) => {
     isFileWriting = true;
 
     // Save the updated Excel file
-    await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-    console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
+    try {
+      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
+    } catch (writeError) {
+      console.error('Failed to write Excel file:', writeError.message);
+      // If the write fails due to an "Out of bounds" error, recreate the file
+      if (writeError.message.includes('Out of bounds')) {
+        console.log('Recreating Excel file due to "Out of bounds" error...');
+        workbook = await initializeExcel();
+        sheet = workbook.getWorksheet('Customers');
+        sheet.addRow({ name, email, phone });
+        await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+        console.log('Recreated and saved new Excel file:', LOCAL_EXCEL_FILE);
+      } else {
+        throw writeError;
+      }
+    }
 
     // Verify the file was updated by reading it back
     const updatedWorkbook = new ExcelJS.Workbook();
@@ -245,7 +272,6 @@ app.post('/submit', async (req, res) => {
     console.error('Failed to process submission:', error.message);
     res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
   } finally {
-    // Reset the file writing flag
     isFileWriting = false;
   }
 });
