@@ -61,23 +61,42 @@ async function loadLocalExcel() {
       throw new Error('Worksheet is empty. Recreating the file.');
     }
 
+    // Check for invalid column count
     if (sheet.columnCount > 16384) {
       throw new Error('Excel file has too many columns. Recreating the file.');
     }
 
+    // Validate column structure
     const expectedColumns = ['Name', 'Email', 'Phone'];
     const actualColumns = sheet.getRow(1).values?.slice(1) || [];
     if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
       console.log('Invalid column structure detected:', actualColumns);
       throw new Error('Invalid column structure.');
     }
+
+    // Additional validation: Check each row for valid data
+    let rowData = [];
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        const name = row.getCell('name')?.value?.toString().trim();
+        const email = row.getCell('email')?.value?.toString().trim();
+        const phone = row.getCell('phone')?.value?.toString().trim();
+        if (!name || !email || !phone) {
+          console.log(`Invalid data in row ${rowNumber}:`, { name, email, phone });
+          throw new Error(`Invalid data in row ${rowNumber}`);
+        }
+        rowData.push({ name, email, phone });
+      }
+    });
+
+    return { workbook, rowData };
   } catch (error) {
     console.log('Error loading Excel file, initializing a new one:', error.message);
     workbook = await initializeExcel();
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Created new Excel file:', LOCAL_EXCEL_FILE);
+    return { workbook, rowData: [] };
   }
-  return workbook;
 }
 
 async function uploadToGoogleDrive() {
@@ -174,8 +193,7 @@ async function initializeFromGoogleDrive() {
 
 // Check for duplicate email or phone
 async function checkDuplicates(email, phone) {
-  const workbook = await loadLocalExcel();
-  const sheet = workbook.getWorksheet('Customers');
+  const { workbook, rowData } = await loadLocalExcel();
   let duplicateField = null;
 
   const normalizedEmail = email.toString().trim().toLowerCase();
@@ -183,22 +201,20 @@ async function checkDuplicates(email, phone) {
 
   console.log('Checking for duplicates with:', { email: normalizedEmail, phone: normalizedPhone });
 
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber > 1) {
-      const existingEmail = row.getCell('email').value?.toString().trim().toLowerCase();
-      const existingPhone = row.getCell('phone').value?.toString().trim();
+  for (const row of rowData) {
+    const existingEmail = row.email.toLowerCase();
+    const existingPhone = row.phone;
 
-      console.log(`Row ${rowNumber}:`, { existingEmail, existingPhone });
+    console.log('Existing row:', { existingEmail, existingPhone });
 
-      if (existingEmail === normalizedEmail) {
-        duplicateField = 'email';
-      } else if (existingPhone === normalizedPhone) {
-        duplicateField = 'phone';
-      }
+    if (existingEmail === normalizedEmail) {
+      duplicateField = 'email';
+    } else if (existingPhone === normalizedPhone) {
+      duplicateField = 'phone';
     }
-  });
+  }
 
-  return duplicateField;
+  return { duplicateField, workbook };
 }
 
 // Utility function to delay execution
@@ -224,7 +240,7 @@ app.post('/submit', async (req, res) => {
     }
 
     // Check for duplicates
-    const duplicateField = await checkDuplicates(email, phone);
+    const { duplicateField, workbook } = await checkDuplicates(email, phone);
     if (duplicateField) {
       console.log(`Duplicate ${duplicateField} detected:`, duplicateField === 'email' ? email : phone);
       responseSent = true;
@@ -235,67 +251,59 @@ app.post('/submit', async (req, res) => {
     }
 
     // If no duplicates, save the data
-    let workbook = await loadLocalExcel();
     let sheet = workbook.getWorksheet('Customers');
-
-    // Add the new row
     const newRow = sheet.addRow({ name, email, phone });
     console.log('Added new row:', { name, email, phone, rowNumber: newRow.number });
 
     // Set the file writing flag
     isFileWriting = true;
 
-    // Save the updated Excel file
-    try {
-      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-      console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
-
-      // Check file permissions
-      await fs.access(LOCAL_EXCEL_FILE, fs.constants.W_OK);
-      console.log('File is writable:', LOCAL_EXCEL_FILE);
-    } catch (writeError) {
-      console.error('Failed to write Excel file:', writeError.message);
-      if (writeError.message.includes('Out of bounds')) {
-        console.log('Recreating Excel file due to "Out of bounds" error during write...');
-        workbook = await initializeExcel();
-        sheet = workbook.getWorksheet('Customers');
-        sheet.addRow({ name, email, phone });
+    // Save the updated Excel file with retry logic
+    let writeSuccess = false;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
         await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-        console.log('Recreated and saved new Excel file:', LOCAL_EXCEL_FILE);
-      } else {
-        throw writeError;
+        console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
+
+        // Check file permissions
+        await fs.access(LOCAL_EXCEL_FILE, fs.constants.W_OK);
+        console.log('File is writable:', LOCAL_EXCEL_FILE);
+
+        writeSuccess = true;
+        break;
+      } catch (writeError) {
+        console.error(`Write attempt ${attempt} failed:`, writeError.message);
+        if (writeError.message.includes('Out of bounds') && attempt < 2) {
+          console.log('Recreating Excel file due to "Out of bounds" error during write...');
+          const existingData = [];
+          sheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+              existingData.push({
+                name: row.getCell('name')?.value?.toString().trim(),
+                email: row.getCell('email')?.value?.toString().trim(),
+                phone: row.getCell('phone')?.value?.toString().trim(),
+              });
+            }
+          });
+          workbook = await initializeExcel();
+          sheet = workbook.getWorksheet('Customers');
+          existingData.push({ name, email, phone });
+          for (const entry of existingData) {
+            sheet.addRow(entry);
+          }
+          console.log('Recreated file with existing data and new entry:', existingData);
+        } else {
+          throw writeError;
+        }
       }
+    }
+
+    if (!writeSuccess) {
+      throw new Error('Failed to write Excel file after multiple attempts.');
     }
 
     // Increase delay to ensure file write is complete
-    await delay(1000);
-
-    // Validate the file by checking the last row
-    try {
-      const validationWorkbook = new ExcelJS.Workbook();
-      await validationWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-      const validationSheet = validationWorkbook.getWorksheet('Customers');
-      const lastRow = validationSheet.lastRow;
-      if (lastRow) {
-        const lastName = lastRow.getCell('name')?.value?.toString().trim();
-        const lastEmail = lastRow.getCell('email')?.value?.toString().trim();
-        const lastPhone = lastRow.getCell('phone')?.value?.toString().trim();
-        console.log('Last row in file after write:', { name: lastName, email: lastEmail, phone: lastPhone });
-        if (lastName !== name || lastEmail !== email || lastPhone !== phone) {
-          throw new Error('Last row does not match the submitted data.');
-        }
-        console.log('File validated successfully after write with matching data.');
-      } else {
-        throw new Error('No last row found in file after write.');
-      }
-    } catch (validationError) {
-      console.error('Failed to validate file after write:', validationError.message);
-      workbook = await initializeExcel();
-      sheet = workbook.getWorksheet('Customers');
-      sheet.addRow({ name, email, phone });
-      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-      console.log('Recreated and saved new Excel file due to validation failure:', LOCAL_EXCEL_FILE);
-    }
+    await delay(2000);
 
     // Force immediate Google Drive sync
     try {
