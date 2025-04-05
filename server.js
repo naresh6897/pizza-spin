@@ -38,10 +38,16 @@ async function initializeExcel() {
 async function loadLocalExcel() {
   let workbook;
   try {
-    // Check if the file exists and has content
+    // Check if the file exists
+    const fileExists = await fs.access(LOCAL_EXCEL_FILE).then(() => true).catch(() => false);
+    if (!fileExists) {
+      throw new Error('Excel file does not exist. Creating a new one.');
+    }
+
+    // Check if the file is empty or too small to be a valid Excel file
     const fileStats = await fs.stat(LOCAL_EXCEL_FILE);
-    if (fileStats.size === 0) {
-      throw new Error('Excel file is empty. Recreating the file.');
+    if (fileStats.size < 1000) { // Arbitrary small size to indicate an invalid file
+      throw new Error('Excel file is too small or empty. Recreating the file.');
     }
 
     workbook = new ExcelJS.Workbook();
@@ -53,7 +59,7 @@ async function loadLocalExcel() {
       throw new Error('Worksheet "Customers" not found in the Excel file.');
     }
 
-    // Check if the worksheet has any rows
+    // Check if the worksheet has any rows (including header)
     if (sheet.rowCount === 0) {
       throw new Error('Worksheet is empty. Recreating the file.');
     }
@@ -65,9 +71,9 @@ async function loadLocalExcel() {
 
     // Validate column structure
     const expectedColumns = ['Name', 'Email', 'Phone'];
-    const actualColumns = sheet.getRow(1).values.slice(1);
+    const actualColumns = sheet.getRow(1).values?.slice(1) || [];
     if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
-      console.log('Invalid column structure detected. Recreating the file.');
+      console.log('Invalid column structure detected:', actualColumns);
       throw new Error('Invalid column structure.');
     }
   } catch (error) {
@@ -270,7 +276,30 @@ app.post('/submit', async (req, res) => {
     res.status(200).json({ success: true, name });
   } catch (error) {
     console.error('Failed to process submission:', error.message);
-    res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
+    // If the error is related to file loading, try one more time with a fresh file
+    if (error.message.includes('Out of bounds') || error.message.includes('Invalid column structure')) {
+      console.log('Retrying with a fresh Excel file...');
+      let workbook = await initializeExcel();
+      let sheet = workbook.getWorksheet('Customers');
+      sheet.addRow({ name, email, phone });
+      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+      console.log('Recreated and saved new Excel file after error:', LOCAL_EXCEL_FILE);
+
+      // Verify the file was updated
+      const updatedWorkbook = new ExcelJS.Workbook();
+      await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+      const updatedSheet = updatedWorkbook.getWorksheet('Customers');
+      const lastRow = updatedSheet.lastRow;
+      console.log('Last row in Excel file after retry:', {
+        name: lastRow.getCell('name').value,
+        email: lastRow.getCell('email').value,
+        phone: lastRow.getCell('phone').value,
+      });
+
+      res.status(200).json({ success: true, name });
+    } else {
+      res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
+    }
   } finally {
     isFileWriting = false;
   }
