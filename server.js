@@ -46,7 +46,7 @@ async function loadLocalExcel() {
 
     // Check if the file is empty or too small to be a valid Excel file
     const fileStats = await fs.stat(LOCAL_EXCEL_FILE);
-    if (fileStats.size < 1000) { // Arbitrary small size to indicate an invalid file
+    if (fileStats.size < 1000) {
       throw new Error('Excel file is too small or empty. Recreating the file.');
     }
 
@@ -59,17 +59,14 @@ async function loadLocalExcel() {
       throw new Error('Worksheet "Customers" not found in the Excel file.');
     }
 
-    // Check if the worksheet has any rows (including header)
     if (sheet.rowCount === 0) {
       throw new Error('Worksheet is empty. Recreating the file.');
     }
 
-    // Check column count
     if (sheet.columnCount > 16384) {
       throw new Error('Excel file has too many columns. Recreating the file.');
     }
 
-    // Validate column structure
     const expectedColumns = ['Name', 'Email', 'Phone'];
     const actualColumns = sheet.getRow(1).values?.slice(1) || [];
     if (!expectedColumns.every((col, idx) => actualColumns[idx] === col)) {
@@ -206,26 +203,33 @@ async function checkDuplicates(email, phone) {
   return duplicateField;
 }
 
+// Utility function to delay execution
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 app.post('/submit', async (req, res) => {
-  const { name, email, phone } = req.body;
-
-  console.log('Received submission:', { name, email, phone });
-
-  if (!name || !email || !phone) {
-    console.log('Validation failed: Missing required fields');
-    return res.status(400).json({ success: false, error: 'Missing required fields' });
-  }
-
-  if (!/^\d{10}$/.test(phone)) {
-    console.log('Validation failed: Invalid phone number');
-    return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
-  }
-
+  let responseSent = false;
   try {
+    const { name, email, phone } = req.body;
+
+    console.log('Received submission:', { name, email, phone });
+
+    if (!name || !email || !phone) {
+      console.log('Validation failed: Missing required fields');
+      responseSent = true;
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    if (!/^\d{10}$/.test(phone)) {
+      console.log('Validation failed: Invalid phone number');
+      responseSent = true;
+      return res.status(400).json({ success: false, error: 'Invalid phone number (10 digits required)' });
+    }
+
     // Check for duplicates
     const duplicateField = await checkDuplicates(email, phone);
     if (duplicateField) {
       console.log(`Duplicate ${duplicateField} detected:`, duplicateField === 'email' ? email : phone);
+      responseSent = true;
       return res.status(409).json({
         success: false,
         error: `This ${duplicateField} already exists. One spin per customer!`
@@ -249,9 +253,8 @@ app.post('/submit', async (req, res) => {
       console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
     } catch (writeError) {
       console.error('Failed to write Excel file:', writeError.message);
-      // If the write fails due to an "Out of bounds" error, recreate the file
       if (writeError.message.includes('Out of bounds')) {
-        console.log('Recreating Excel file due to "Out of bounds" error...');
+        console.log('Recreating Excel file due to "Out of bounds" error during write...');
         workbook = await initializeExcel();
         sheet = workbook.getWorksheet('Customers');
         sheet.addRow({ name, email, phone });
@@ -262,46 +265,46 @@ app.post('/submit', async (req, res) => {
       }
     }
 
-    // Verify the file was updated by reading it back
-    const updatedWorkbook = new ExcelJS.Workbook();
-    await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
-    const updatedSheet = updatedWorkbook.getWorksheet('Customers');
-    const lastRow = updatedSheet.lastRow;
-    console.log('Last row in Excel file after save:', {
-      name: lastRow.getCell('name').value,
-      email: lastRow.getCell('email').value,
-      phone: lastRow.getCell('phone').value,
-    });
+    // Add a small delay to ensure the file write is complete
+    await delay(500);
 
-    res.status(200).json({ success: true, name });
-  } catch (error) {
-    console.error('Failed to process submission:', error.message);
-    // If the error is related to file loading, try one more time with a fresh file
-    if (error.message.includes('Out of bounds') || error.message.includes('Invalid column structure')) {
-      console.log('Retrying with a fresh Excel file...');
-      let workbook = await initializeExcel();
-      let sheet = workbook.getWorksheet('Customers');
-      sheet.addRow({ name, email, phone });
-      await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
-      console.log('Recreated and saved new Excel file after error:', LOCAL_EXCEL_FILE);
-
-      // Verify the file was updated
+    // Verify the file was updated by reading it back (with error handling)
+    try {
       const updatedWorkbook = new ExcelJS.Workbook();
       await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
       const updatedSheet = updatedWorkbook.getWorksheet('Customers');
       const lastRow = updatedSheet.lastRow;
-      console.log('Last row in Excel file after retry:', {
-        name: lastRow.getCell('name').value,
-        email: lastRow.getCell('email').value,
-        phone: lastRow.getCell('phone').value,
-      });
+      if (lastRow) {
+        console.log('Last row in Excel file after save:', {
+          name: lastRow.getCell('name')?.value || 'N/A',
+          email: lastRow.getCell('email')?.value || 'N/A',
+          phone: lastRow.getCell('phone')?.value || 'N/A',
+        });
+      } else {
+        console.log('No last row found in Excel file after save.');
+      }
+    } catch (verifyError) {
+      console.error('Failed to verify Excel file after save:', verifyError.message);
+      // Log the failure but do not attempt to recreate the file here to avoid recursive errors
+      console.log('Proceeding without recreating the file to ensure response is sent.');
+    }
 
-      res.status(200).json({ success: true, name });
-    } else {
+    // Send the success response
+    responseSent = true;
+    res.status(200).json({ success: true, name });
+  } catch (error) {
+    console.error('Failed to process submission:', error.message);
+    if (!responseSent) {
+      responseSent = true;
       res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
     }
   } finally {
     isFileWriting = false;
+    // Double-check that a response was sent
+    if (!responseSent) {
+      console.error('Response was not sent in try-catch block, sending default error response.');
+      res.status(500).json({ success: false, error: 'Internal server error: Response not sent' });
+    }
   }
 });
 
