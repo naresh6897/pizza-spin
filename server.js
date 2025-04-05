@@ -10,6 +10,9 @@ const PORT = process.env.PORT || 3000;
 const LOCAL_EXCEL_FILE = path.join(__dirname, 'customers.xlsx');
 const GOOGLE_DRIVE_FOLDER_ID = '1IukhF0WohOBlbOtJCX-ltxgPs-Gi3EpL';
 
+// Flag to prevent concurrent file access
+let isFileWriting = false;
+
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
   scopes: ['https://www.googleapis.com/auth/drive'],
@@ -58,11 +61,18 @@ async function loadLocalExcel() {
     console.log('Error loading Excel file, initializing a new one:', error.message);
     workbook = await initializeExcel();
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
+    console.log('Created new Excel file:', LOCAL_EXCEL_FILE);
   }
   return workbook;
 }
 
 async function uploadToGoogleDrive() {
+  // Skip upload if the file is being written
+  if (isFileWriting) {
+    console.log('File is being written, skipping Google Drive sync.');
+    return;
+  }
+
   try {
     const existingFiles = await drive.files.list({
       q: `'${GOOGLE_DRIVE_FOLDER_ID}' in parents and name = 'customers.xlsx' and trashed = false`,
@@ -155,14 +165,13 @@ async function checkDuplicates(email, phone) {
   const sheet = workbook.getWorksheet('Customers');
   let duplicateField = null;
 
-  // Normalize the input email and phone for comparison
   const normalizedEmail = email.toString().trim().toLowerCase();
   const normalizedPhone = phone.toString().trim();
 
   console.log('Checking for duplicates with:', { email: normalizedEmail, phone: normalizedPhone });
 
   sheet.eachRow((row, rowNumber) => {
-    if (rowNumber > 1) { // Skip header row
+    if (rowNumber > 1) {
       const existingEmail = row.getCell('email').value?.toString().trim().toLowerCase();
       const existingPhone = row.getCell('phone').value?.toString().trim();
 
@@ -211,16 +220,33 @@ app.post('/submit', async (req, res) => {
 
     // Add the new row
     const newRow = sheet.addRow({ name, email, phone });
-    newRow.commit();
+    console.log('Added new row:', { name, email, phone, rowNumber: newRow.number });
+
+    // Set the file writing flag
+    isFileWriting = true;
 
     // Save the updated Excel file
     await workbook.xlsx.writeFile(LOCAL_EXCEL_FILE);
     console.log('Data saved to local Excel file:', LOCAL_EXCEL_FILE);
 
+    // Verify the file was updated by reading it back
+    const updatedWorkbook = new ExcelJS.Workbook();
+    await updatedWorkbook.xlsx.readFile(LOCAL_EXCEL_FILE);
+    const updatedSheet = updatedWorkbook.getWorksheet('Customers');
+    const lastRow = updatedSheet.lastRow;
+    console.log('Last row in Excel file after save:', {
+      name: lastRow.getCell('name').value,
+      email: lastRow.getCell('email').value,
+      phone: lastRow.getCell('phone').value,
+    });
+
     res.status(200).json({ success: true, name });
   } catch (error) {
     console.error('Failed to process submission:', error.message);
     res.status(500).json({ success: false, error: `Failed to save data: ${error.message}` });
+  } finally {
+    // Reset the file writing flag
+    isFileWriting = false;
   }
 });
 
